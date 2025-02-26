@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>뺄셈</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+        }
+        #gameTitle {
+            font-size: 4em;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #76c7c0;
+            color: white;
+        }
+        #scoreBoard {
+            font-size: 2.4em;
+            margin: 10px;
+        }
+        #energyBarContainer {
+            width: 80%;
+            height: 30px;
+            background-color: #ddd;
+            margin: 20px auto;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        #energyBar {
+            width: 100%;
+            height: 100%;
+            background-color: #76c7c0;
+            transition: width 0.1s linear;
+        }
+        #questionDisplay {
+            font-size: 10em;
+            margin: 50px;
+        }
+        #buttonsContainer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .answerButton {
+            width: 80px;
+            height: 80px;
+            margin: 10px;
+            font-size: 4em;
+            cursor: pointer;
+            background-color: #fff;
+            border: 2px solid #76c7c0;
+            border-radius: 10px;
+            transition: background-color 0.2s;
+        }
+        .answerButton:hover {
+            background-color: #e0f7fa;
+        }
+        #resultMessage {
+            font-size: 3em;
+            margin: 20px;
+            height: 30px;
+        }
+        #finalScore {
+            font-size: 4em;
+            margin: 50px;
+            color: #d32f2f;
+        }
+        #startButton {
+            font-size: 3em;
+            padding: 20px 40px;
+            margin-top: 50px;
+            cursor: pointer;
+            background-color: #76c7c0;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+        }
+        #startButton:hover {
+            background-color: #64b5f6;
+        }
+        #difficultyButtons {
+            margin-top: 30px;
+        }
+        .difficultyButton {
+            font-size: 2em;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            background-color: #ffa726;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+        }
+        .difficultyButton:hover {
+            background-color: #ff7043;
+        }
+        #playerInput {
+            margin-top: 30px;
+        }
+        #playerInput input {
+            font-size: 2em;
+            padding: 10px;
+        }
+        #playerInput button {
+            font-size: 2em;
+            padding: 10px 20px;
+            margin-left: 10px;
+            cursor: pointer;
+            background-color: #76c7c0;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+        }
+        #nextQuestionButton, #submitScoreButton {
+            font-size: 2em;
+            padding: 10px 20px;
+            margin: 20px;
+            cursor: pointer;
+            background-color: #76c7c0;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameTitle">뺄셈</div>
+    <div id="playerInput">
+        <input type="text" id="playerName" placeholder="이름을 입력하세요">
+        <button id="nameSubmitButton">확인</button>
+    </div>
+    <div id="difficultyButtons" style="display: none;">
+        <button class="difficultyButton" data-time="20000" data-score="20">최상</button>
+        <button class="difficultyButton" data-time="30000" data-score="15">상</button>
+        <button class="difficultyButton" data-time="40000" data-score="13">중</button>
+        <button class="difficultyButton" data-time="0" data-score="10">하</button>
+    </div>
+    <div id="scoreBoard">점수: <span id="score">0</span> | 틀린 횟수: <span id="mistakes">0</span>/3</div>
+    <div id="energyBarContainer">
+        <div id="energyBar"></div>
+    </div>
+    <div id="questionDisplay"></div>
+    <div id="buttonsContainer"></div>
+    <div id="resultMessage"></div>
+    <button id="nextQuestionButton" style="display: none;">다음 문제</button>
+    <div id="finalScore"></div>
+    <button id="startButton" style="display: none;">게임 시작하기</button>
+    <button id="submitScoreButton" style="display: none;">점수전송</button>
+    <div id="response"></div>
+
+    <script>
+        const totalMistakesAllowed = 3;
+        let score = 0;
+        let mistakes = 0;
+        let stage = 1;
+        let timeLimit = 22500;
+        let energyBarInterval;
+        let timeRemaining;
+        let currentQuestion;
+        let timer;
+        let scorePerQuestion = 10;
+        let startTime = 0;
+        let playerName = "";
+
+        const questionDisplay = document.getElementById('questionDisplay');
+        const buttonsContainer = document.getElementById('buttonsContainer');
+        const scoreElement = document.getElementById('score');
+        const mistakesElement = document.getElementById('mistakes');
+        const resultMessage = document.getElementById('resultMessage');
+        const finalScore = document.getElementById('finalScore');
+        const startButton = document.getElementById('startButton');
+        const energyBar = document.getElementById('energyBar');
+        const nextQuestionButton = document.getElementById('nextQuestionButton');
+        const submitScoreButton = document.getElementById('submitScoreButton');
+        const playerInputDiv = document.getElementById('playerInput');
+        const difficultyButtonsDiv = document.getElementById('difficultyButtons');
+
+        // 첫 화면: 이름 입력 후 확인을 누르면 난이도 버튼이 보임
+        document.getElementById('nameSubmitButton').addEventListener('click', () => {
+            const inputName = document.getElementById('playerName').value.trim();
+            if(inputName === ""){
+                alert("이름을 입력하세요.");
+                return;
+            }
+            playerName = inputName;
+            playerInputDiv.style.display = 'none';
+            difficultyButtonsDiv.style.display = 'block';
+        });
+
+        // 난이도 선택 시 게임 시작
+        document.querySelectorAll('.difficultyButton').forEach(button => {
+            button.addEventListener('click', () => {
+                timeLimit = parseInt(button.getAttribute('data-time'));
+                scorePerQuestion = parseInt(button.getAttribute('data-score'));
+                difficultyButtonsDiv.style.display = 'none';
+                startGame();
+            });
+        });
+
+        function startGame() {
+            score = 0;
+            mistakes = 0;
+            stage = 1;
+            finalScore.textContent = '';
+            resultMessage.textContent = '';
+            startButton.style.display = 'none';
+            submitScoreButton.style.display = 'none';
+            updateScoreBoard();
+            startTime = Date.now();
+            nextStage();
+        }
+
+        function nextStage() {
+            // "다음 문제" 버튼 숨김
+            nextQuestionButton.style.display = 'none';
+            timeRemaining = timeLimit;
+            updateEnergyBar();
+            generateQuestion();
+            generateButtons();
+            resultMessage.textContent = '';
+            if (timeLimit > 0) startTimer();
+        }
+
+        function generateQuestion() {
+            const minuend = Math.floor(Math.random() * 10) + 10;
+            const subtrahend = Math.floor(Math.random() * 9) + 1;
+            currentQuestion = {
+                text: `${minuend} - ${subtrahend} = ?`,
+                answer: minuend - subtrahend
+            };
+            questionDisplay.textContent = currentQuestion.text;
+        }
+
+        function generateButtons() {
+            buttonsContainer.innerHTML = '';
+            const correctAnswer = currentQuestion.answer;
+            let answers = [correctAnswer];
+
+            while (answers.length < 4) {
+                let wrongAnswer = correctAnswer + Math.floor(Math.random() * 11) - 5;
+                if (wrongAnswer >= 1 && !answers.includes(wrongAnswer)) {
+                    answers.push(wrongAnswer);
+                }
+            }
+
+            answers.sort(() => Math.random() - 0.5);
+
+            answers.forEach(number => {
+                const btn = document.createElement('button');
+                btn.classList.add('answerButton');
+                btn.textContent = number;
+                btn.addEventListener('click', () => checkAnswer(number));
+                buttonsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedNumber) {
+            // 답변 후 버튼 중복 클릭 방지
+            Array.from(document.getElementsByClassName('answerButton')).forEach(btn => btn.disabled = true);
+            clearTimeout(timer);
+            clearInterval(energyBarInterval);
+            const correctAnswer = currentQuestion.answer;
+            if (selectedNumber === correctAnswer) {
+                score += scorePerQuestion;
+                resultMessage.style.color = 'green';
+                resultMessage.textContent = '잘했어요!';
+            } else {
+                mistakes++;
+                resultMessage.style.color = 'red';
+                resultMessage.textContent = '다시 시도해보세요!';
+                updateScoreBoard();
+            }
+            if(mistakes >= totalMistakesAllowed) {
+                endGame();
+            } else {
+                stage++;
+                if (timeLimit > 0) timeLimit *= 0.98;
+                showNextQuestionButton();
+            }
+        }
+
+        function startTimer() {
+            timer = setTimeout(() => {
+                clearInterval(energyBarInterval);
+                mistakes++;
+                resultMessage.style.color = 'red';
+                resultMessage.textContent = '시간이 초과되었어요!';
+                updateScoreBoard();
+                if(mistakes >= totalMistakesAllowed) {
+                    endGame();
+                } else {
+                    showNextQuestionButton();
+                }
+            }, timeLimit);
+
+            energyBarInterval = setInterval(() => {
+                timeRemaining -= 50;
+                updateEnergyBar();
+                if (timeRemaining <= 0) {
+                    clearInterval(energyBarInterval);
+                }
+            }, 50);
+        }
+
+        function updateEnergyBar() {
+            const width = (timeRemaining / timeLimit) * 100;
+            energyBar.style.width = width + '%';
+            if (width <= 0) {
+                energyBar.style.width = '0%';
+            }
+        }
+
+        function updateScoreBoard() {
+            scoreElement.textContent = score;
+            mistakesElement.textContent = mistakes;
+        }
+
+        function showNextQuestionButton() {
+            nextQuestionButton.style.display = 'inline-block';
+            nextQuestionButton.disabled = false;
+        }
+
+        nextQuestionButton.addEventListener('click', () => {
+            resultMessage.textContent = '';
+            nextStage();
+        });
+
+        function endGame() {
+            clearTimeout(timer);
+            clearInterval(energyBarInterval);
+            questionDisplay.textContent = '';
+            buttonsContainer.innerHTML = '';
+            resultMessage.textContent = '';
+            finalScore.textContent = `게임 종료! 최종 점수: ${score}점`;
+            nextQuestionButton.style.display = 'none';
+            startButton.textContent = '다시 시작하기';
+            startButton.style.display = 'inline-block';
+            submitScoreButton.style.display = 'inline-block';
+            // 경과시간을 초 단위로 계산
+            const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            submitScoreButton.onclick = () => {
+                saveData("뺄셈", playerName, score, elapsedTime);
+            };
+        }
+
+        async function saveData(game, name, score, elapsedTime) {
+            const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+            const requestData = {
+                game,
+                name,
+                score: parseInt(score, 10),
+                elapsedTime: parseInt(elapsedTime, 10)
+            };
+
+            try {
+                const response = await fetch(FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const responseData = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('response').innerText = `성공: ${JSON.stringify(responseData, null, 2)}`;
+                } else {
+                    document.getElementById('response').innerText = `오류: ${JSON.stringify(responseData, null, 2)}`;
+                }
+            } catch (error) {
+                console.error('요청 실패:', error);
+                document.getElementById('response').innerText = `네트워크 오류: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
